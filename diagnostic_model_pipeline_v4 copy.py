@@ -972,7 +972,7 @@ class DiagnosticModelPipelineV4:
 
 if __name__ == '__main__':
     pipeline = DiagnosticModelPipelineV4(
-        'data/Discovery_P80_sweetners_CD_individual_activity(1).csv',
+        'data/LR_CD_P80_individual_input_table.csv',
         'data/Validation_P80_sweetners_CD_individual_activity_Re.csv'
     )
     

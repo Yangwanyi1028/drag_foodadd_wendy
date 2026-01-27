@@ -961,8 +961,8 @@ class DiagnosticModelPipelineV4:
 
 if __name__ == '__main__':
     pipeline = DiagnosticModelPipelineV4(
-        'LR_CD_P80_individual_input_table.csv',
-        'LR_AOCC_MiRES_combined_Validation_cohort_individual_input_table.csv'
+        'data/LR_CD_P80_individual_input_table.csv',
+        'data/LR_AOCC_MiRES_combined_Validation_cohort_individual_input_table.csv'
     )
     
     # Run with specified transformation, or let the program auto-select

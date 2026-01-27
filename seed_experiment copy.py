@@ -253,7 +253,7 @@ def main():
     print("="*70)
     
     # 使用新的数据文件
-    discovery_path = 'data/Discovery_P80_sweetners_CD_individual_activity(1).csv'
+    discovery_path = 'data/LR_CD_P80_individual_input_table.csv'
     validation_path = 'data/Validation_P80_sweetners_CD_individual_activity_Re.csv'
     
     # Create main output directory
