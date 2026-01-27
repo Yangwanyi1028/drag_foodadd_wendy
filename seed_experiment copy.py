@@ -252,9 +252,9 @@ def main():
     print("   Seed Experiment: Testing seeds 1-100")
     print("="*70)
     
-    # 使用新的 Discovery 文件
-    discovery_path = 'Discovery_P80_sweetners_CD_individual_activity.csv'
-    validation_path = 'LR_AOCC_MiRES_combined_Validation_cohort_individual_input_table.csv'
+    # 使用新的数据文件
+    discovery_path = 'data/Discovery_P80_sweetners_CD_individual_activity(1).csv'
+    validation_path = 'data/Validation_P80_sweetners_CD_individual_activity_Re.csv'
     
     # Create main output directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

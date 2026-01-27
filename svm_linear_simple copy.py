@@ -37,9 +37,9 @@ print("="*60)
 print("   SVM Linear - Simple Training & Validation")
 print("="*60)
 
-# Load datasets - 使用新的 Discovery 文件
-disc_df = pd.read_csv('Discovery_P80_sweetners_CD_individual_activity.csv', na_values=['.', '', ' '])
-val_df = pd.read_csv('LR_AOCC_MiRES_combined_Validation_cohort_individual_input_table.csv', na_values=['.', '', ' '])
+# Load datasets - 使用新的数据文件
+disc_df = pd.read_csv('data/Discovery_P80_sweetners_CD_individual_activity(1).csv', na_values=['.', '', ' '])
+val_df = pd.read_csv('data/Validation_P80_sweetners_CD_individual_activity_Re.csv', na_values=['.', '', ' '])
 
 # 清洗 Group 列：转换为数值，过滤掉无法转换的行
 disc_df['Group'] = pd.to_numeric(disc_df['Group'], errors='coerce')

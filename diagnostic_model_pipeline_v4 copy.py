@@ -80,7 +80,7 @@ class DiagnosticModelPipelineV4:
         self.y_validation = val_df['Group']
         
         # 排除非特征列（如 sampleID, cdai 等）
-        exclude_cols = ['Group', 'sampleID', 'cdai', 'Asp_U', 'Sac_U', 'Suc_U', 'Asp_S', 'Sac_S', 'Suc_S']
+        exclude_cols = ['Group', 'sampleID']
         X_disc = disc_df.drop([c for c in exclude_cols if c in disc_df.columns], axis=1)
         X_val = val_df.drop([c for c in exclude_cols if c in val_df.columns], axis=1)
         
@@ -972,8 +972,8 @@ class DiagnosticModelPipelineV4:
 
 if __name__ == '__main__':
     pipeline = DiagnosticModelPipelineV4(
-        'Discovery_P80_sweetners_CD_individual_activity.csv',
-        'LR_AOCC_MiRES_combined_Validation_cohort_individual_input_table.csv'
+        'data/Discovery_P80_sweetners_CD_individual_activity(1).csv',
+        'data/Validation_P80_sweetners_CD_individual_activity_Re.csv'
     )
     
     # Run with specified transformation, or let the program auto-select
