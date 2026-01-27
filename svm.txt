@@ -1,0 +1,80 @@
+============================================================
+   SVM Linear - Simple Training & Validation
+============================================================
+
+Data loaded:
+  Discovery: 214 samples, 12 features
+  Validation: 250 samples
+  Class distribution (Discovery): {np.int64(0): np.int64(174), np.int64(1): np.int64(40)}
+  Class distribution (Validation): {np.int64(0): np.int64(191), np.int64(1): np.int64(59)}
+
+============================================================
+Training SVM Linear...
+============================================================
+Model trained successfully!
+
+----------------------------------------
+Results on Discovery Set:
+----------------------------------------
+  AUC: 0.6966
+
+  Classification Report:
+              precision    recall  f1-score   support
+
+     Class 0       0.91      0.47      0.62       174
+     Class 1       0.26      0.80      0.39        40
+
+    accuracy                           0.53       214
+   macro avg       0.58      0.64      0.51       214
+weighted avg       0.79      0.53      0.58       214
+
+----------------------------------------
+Results on Validation Set:
+----------------------------------------
+  AUC: 0.7002
+  Optimal Threshold: 0.1992
+  Sensitivity: 0.7966
+  Specificity: 0.5393
+
+  Classification Report:
+              precision    recall  f1-score   support
+
+     Class 0       0.90      0.54      0.67       191
+     Class 1       0.35      0.80      0.48        59
+
+    accuracy                           0.60       250
+   macro avg       0.62      0.67      0.58       250
+weighted avg       0.77      0.60      0.63       250
+
+  Confusion Matrix:
+    TN=103, FP=88
+    FN=12, TP=47
+2026-01-26 19:50:26.040 python[8547:7918533] +[IMKClient subclass]: chose IMKClient_Modern
+2026-01-26 19:50:26.040 python[8547:7918533] +[IMKInputSession subclass]: chose IMKInputSession_Modern
+
+============================================================
+   SUMMARY
+============================================================
+  Model: SVM Linear (C=0.5, balanced)
+  Random Seed: 134
+  Features: 12
+  
+  Discovery AUC:  0.6966
+  Validation AUC: 0.7002
+  Sensitivity:    0.7966
+  Specificity:    0.5393
+  
+  Selected Features:
+     1. POE14
+     2. POE30.C18
+     3. POE31.C18
+     4. POE15
+     5. POE35.SORBITAN
+     6. POE25.C18
+     7. POE17
+     8. POE24.SORBITAN
+     9. POE12
+    10. POE13
+    11. POE16
+    12. POE20.SORBITAN
+============================================================
