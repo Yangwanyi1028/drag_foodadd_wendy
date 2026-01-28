@@ -159,7 +159,7 @@ def run_pipeline_with_seed(discovery_path, validation_path, seed, output_dir):
     feature_scores = feature_scores.sort_values('Avg_rank')
     
     # Select top 12 features
-    n_features = 12
+    n_features = 3
     selected_features = feature_scores.head(n_features).index.tolist()
     
     # Train models
@@ -253,8 +253,8 @@ def main():
     print("="*70)
     
     # 使用新的数据文件
-    discovery_path = 'data/LR_CD_P80_individual_input_table.csv'
-    validation_path = 'data/Validation_P80_sweetners_CD_individual_activity_Re.csv'
+    discovery_path = 'data/Discovery_HK.csv'
+    validation_path = 'data/Validation_AUS_KM.csv'
     
     # Create main output directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -359,12 +359,6 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(main_output_dir, 'seed_experiment_summary.png'), 
                 bbox_inches='tight', facecolor='white', dpi=150)
-    plt.show()
-    
-    print(f"\nResults saved to: {main_output_dir}/")
-    print(f"  - seed_experiment_summary.csv")
-    print(f"  - seed_experiment_summary.png")
-    print(f"  - seed_001/ to seed_100/ (individual results)")
     
     return summary_df
 

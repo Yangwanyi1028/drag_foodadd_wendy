@@ -25,6 +25,13 @@ RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 os.environ['PYTHONHASHSEED'] = str(RANDOM_SEED)
+os.environ['OMP_NUM_THREADS'] = '1'  # 禁用 OpenMP 多线程
+os.environ['MKL_NUM_THREADS'] = '1'  # 禁用 MKL 多线程
+
+def set_seed(seed=RANDOM_SEED):
+    """在每次关键操作前重新设置随机种子"""
+    random.seed(seed)
+    np.random.seed(seed)
 
 from sklearn.preprocessing import (
     StandardScaler, PowerTransformer, QuantileTransformer
@@ -62,7 +69,18 @@ METRIC_STYLES = {
 class DiagnosticModelPipelineV4:
     """带数据变换的诊断模型Pipeline"""
     
-    def __init__(self, discovery_path, validation_path):
+    def __init__(self, discovery_path, validation_path, output_dir='results'):
+        """
+        Args:
+            discovery_path: Discovery 数据路径
+            validation_path: Validation 数据路径
+            output_dir: 输出目录，所有结果将保存到此目录
+        """
+        # 设置输出目录
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
+        print(f"\n输出目录: {self.output_dir}")
+        
         # 读取数据
         disc_df = pd.read_csv(discovery_path, na_values=['.', '', ' '])
         val_df = pd.read_csv(validation_path, na_values=['.', '', ' '])
@@ -80,7 +98,7 @@ class DiagnosticModelPipelineV4:
         self.y_validation = val_df['Group']
         
         # 排除非特征列（如 sampleID, cdai 等）
-        exclude_cols = ['Group', 'sampleID']
+        exclude_cols = ['Group', 'sampleID','cdai']
         X_disc = disc_df.drop([c for c in exclude_cols if c in disc_df.columns], axis=1)
         X_val = val_df.drop([c for c in exclude_cols if c in val_df.columns], axis=1)
         
@@ -99,6 +117,7 @@ class DiagnosticModelPipelineV4:
     
     def compare_transformations(self):
         """比较不同数据变换方法的效果"""
+        set_seed()  # 确保可重复性
         print("\n" + "="*60)
         print("Data Transformation Comparison")
         print("="*60)
@@ -125,7 +144,7 @@ class DiagnosticModelPipelineV4:
             # 用简单模型评估
             lr = LogisticRegression(C=0.5, class_weight='balanced', max_iter=1000, random_state=42)
             cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-            cv_scores = cross_val_score(lr, X_scaled, y, cv=cv, scoring='roc_auc')
+            cv_scores = cross_val_score(lr, X_scaled, y, cv=cv, scoring='roc_auc', n_jobs=1)
             
             # 计算特征的显著性提升
             n_significant = 0
@@ -259,7 +278,8 @@ class DiagnosticModelPipelineV4:
         ax6.legend()
         
         plt.tight_layout()
-        plt.savefig('v4_01_transformation_comparison.png', bbox_inches='tight', facecolor='white')
+        output_path = os.path.join(self.output_dir, 'v4_01_transformation_comparison.png')
+        plt.savefig(output_path, bbox_inches='tight', facecolor='white')
         plt.show()
     
     # ==================== 2. 应用最佳变换 ====================
@@ -329,6 +349,7 @@ class DiagnosticModelPipelineV4:
     
     def feature_selection(self, n_features=15):
         """Feature selection"""
+        set_seed()  # 确保可重复性
         print("\n" + "="*60)
         print("Feature Selection")
         print("="*60)
@@ -392,7 +413,7 @@ class DiagnosticModelPipelineV4:
         # 4. Random Forest
         print("4. Random Forest...")
         rf = RandomForestClassifier(n_estimators=100, max_depth=3, 
-                                   class_weight='balanced', random_state=42)
+                                   class_weight='balanced', random_state=42, n_jobs=1)
         rf.fit(X_scaled, y)
         feature_scores['RF'] = rf.feature_importances_
         feature_scores['RF_rank'] = feature_scores['RF'].rank(ascending=False)
@@ -426,7 +447,8 @@ class DiagnosticModelPipelineV4:
         self.selected_features = selected
         
         # 保存
-        feature_scores.to_csv('v4_feature_ranking.csv')
+        output_path = os.path.join(self.output_dir, 'v4_feature_ranking.csv')
+        feature_scores.to_csv(output_path)
         
         return selected
     
@@ -434,6 +456,7 @@ class DiagnosticModelPipelineV4:
     
     def train_models(self, cv_folds=5):
         """Train models"""
+        set_seed()  # 确保可重复性
         print("\n" + "="*60)
         print("Model Training")
         print("="*60)
@@ -455,7 +478,7 @@ class DiagnosticModelPipelineV4:
             'SVM Linear': SVC(kernel='linear', C=0.5, class_weight='balanced', probability=True, random_state=42),
             'SVM RBF': SVC(kernel='rbf', C=1.0, class_weight='balanced', probability=True, random_state=42),
             'Random Forest': RandomForestClassifier(n_estimators=100, max_depth=3, 
-                                                    class_weight='balanced', random_state=42),
+                                                    class_weight='balanced', random_state=42, n_jobs=1),
             'Gradient Boosting': GradientBoostingClassifier(n_estimators=50, max_depth=2, 
                                                            learning_rate=0.1, random_state=42),
         }
@@ -464,7 +487,8 @@ class DiagnosticModelPipelineV4:
             scale_weight = sum(y == 0) / sum(y == 1)
             models['XGBoost'] = XGBClassifier(n_estimators=50, max_depth=2, learning_rate=0.1,
                                               scale_pos_weight=scale_weight, reg_alpha=0.5,
-                                              random_state=42, use_label_encoder=False, eval_metric='logloss')
+                                              random_state=42, use_label_encoder=False, eval_metric='logloss',
+                                              n_jobs=1)  # 确保确定性
         
         cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
         results = {}
@@ -472,7 +496,7 @@ class DiagnosticModelPipelineV4:
         for name, model in models.items():
             print(f"\nTraining {name}...")
             
-            cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc')
+            cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc', n_jobs=1)
             model.fit(X_scaled, y)
             
             y_prob_train = model.predict_proba(X_scaled)[:, 1] if hasattr(model, 'predict_proba') else model.decision_function(X_scaled)
@@ -556,23 +580,25 @@ class DiagnosticModelPipelineV4:
         ax3.legend(loc='lower right', fontsize=8)
         ax3.grid(True, alpha=0.3)
         
-        # 4. CV vs Validation AUC
+        # 4. CV vs Train vs Validation AUC
         ax4 = axes[1, 0]
         names = list(self.model_results.keys())
         cv_aucs = [self.model_results[n]['cv_auc'] for n in names]
+        train_aucs = [self.model_results[n]['train_auc'] for n in names]
         val_aucs = [self.model_results[n]['val_auc'] for n in names]
         
         x = np.arange(len(names))
-        width = 0.35
-        ax4.bar(x - width/2, cv_aucs, width, label='CV AUC', color=COLORS['primary'])
-        ax4.bar(x + width/2, val_aucs, width, label='Validation AUC', color=COLORS['secondary'])
+        width = 0.25
+        ax4.bar(x - width, cv_aucs, width, label='CV AUC', color=COLORS['primary'])
+        ax4.bar(x, train_aucs, width, label='Train AUC', color=COLORS['accent'])
+        ax4.bar(x + width, val_aucs, width, label='Validation AUC', color=COLORS['secondary'])
         ax4.axhline(y=0.5, color='red', linestyle='--', alpha=0.5)
         ax4.set_xticks(x)
         ax4.set_xticklabels(names, rotation=45, ha='right', fontsize=8)
         ax4.set_ylabel('AUC')
-        ax4.set_title('CV vs Validation AUC', fontweight='bold')
-        ax4.legend()
-        ax4.set_ylim([0.4, 0.8])
+        ax4.set_title('CV vs Train vs Validation AUC', fontweight='bold')
+        ax4.legend(fontsize=8)
+        ax4.set_ylim([0.4, 1.0])
         
         # 5. Confusion matrix
         ax5 = axes[1, 1]
@@ -601,6 +627,7 @@ class DiagnosticModelPipelineV4:
       Selected features:  {len(self.selected_features):>6}
     --------------------------------------------
       Best Model: {self.best_model_name:<20}
+      Train AUC: {best_result['train_auc']:.4f}
       CV AUC: {best_result['cv_auc']:.4f} +/- {best_result['cv_std']:.4f}
       Validation AUC: {best_result['val_auc']:.4f}
       Generalization Gap: {best_result['train_auc'] - best_result['val_auc']:.4f}
@@ -617,27 +644,33 @@ class DiagnosticModelPipelineV4:
                 fontsize=9, fontfamily='monospace', verticalalignment='top')
         
         plt.tight_layout()
-        plt.savefig('v4_02_final_results.png', bbox_inches='tight', facecolor='white', dpi=150)
+        output_path = os.path.join(self.output_dir, 'v4_02_final_results.png')
+        plt.savefig(output_path, bbox_inches='tight', facecolor='white', dpi=150)
         plt.show()
         
-        # 保存模型对比
-        comparison_data = []
-        for name, r in self.model_results.items():
-            comparison_data.append({
-                'Model': name,
-                'CV_AUC': r['cv_auc'],
-                'CV_std': r['cv_std'],
-                'Train_AUC': r['train_auc'],
-                'Val_AUC': r['val_auc'],
-                'Gap': r['train_auc'] - r['val_auc']
-            })
-        pd.DataFrame(comparison_data).sort_values('Val_AUC', ascending=False).to_csv(
-            'v4_model_comparison.csv', index=False)
+        # 保存模型对比 - 已注释，改用 v4_multi_model_best_configs.csv
+        # comparison_data = []
+        # for name, r in self.model_results.items():
+        #     comparison_data.append({
+        #         'Model': name,
+        #         'CV_AUC': r['cv_auc'],
+        #         'CV_std': r['cv_std'],
+        #         'Train_AUC': r['train_auc'],
+        #         'Val_AUC': r['val_auc'],
+        #         'Gap': r['train_auc'] - r['val_auc']
+        #     })
+        # output_path = os.path.join(self.output_dir, 'v4_model_comparison.csv')
+        # pd.DataFrame(comparison_data).sort_values('Val_AUC', ascending=False).to_csv(
+        #     output_path, index=False)
         
-        pd.DataFrame({'Features': self.selected_features}).to_csv(
-            'v4_selected_features.csv', index=False)
+        output_path = os.path.join(self.output_dir, 'v4_selected_features.csv')
+        pd.DataFrame({'Features': self.selected_features}).to_csv(output_path, index=False)
         
-        print("\nResults saved: v4_feature_ranking.csv, v4_model_comparison.csv, v4_selected_features.csv")
+        print(f"\nResults saved to {self.output_dir}/:")
+        print("  - v4_feature_ranking.csv")
+        print("  - v4_selected_features.csv")
+        print("  - v4_01_transformation_comparison.png")
+        print("  - v4_02_final_results.png")
     
     # ==================== 辅助方法 ====================
     
@@ -654,14 +687,15 @@ class DiagnosticModelPipelineV4:
             return SVC(kernel='rbf', C=1.0, class_weight='balanced', probability=True, random_state=42)
         elif model_name == 'Random Forest':
             return RandomForestClassifier(n_estimators=100, max_depth=3, 
-                                         class_weight='balanced', random_state=42)
+                                         class_weight='balanced', random_state=42, n_jobs=1)
         elif model_name == 'Gradient Boosting':
             return GradientBoostingClassifier(n_estimators=50, max_depth=2, 
                                              learning_rate=0.1, random_state=42)
         elif model_name == 'XGBoost' and HAS_XGBOOST:
             return XGBClassifier(n_estimators=50, max_depth=2, learning_rate=0.1,
                                 scale_pos_weight=4.35, reg_alpha=0.5,
-                                random_state=42, use_label_encoder=False, eval_metric='logloss')
+                                random_state=42, use_label_encoder=False, eval_metric='logloss',
+                                n_jobs=1)  # 确保确定性
         else:
             # 默认返回SVM Linear（通常泛化性能最好）
             return SVC(kernel='linear', C=0.5, class_weight='balanced', probability=True, random_state=42)
@@ -676,6 +710,7 @@ class DiagnosticModelPipelineV4:
             feature_range: 特征数量范围，如 range(3, 16) 表示 top3 到 top15
             model_name: 使用的模型名称，如果为None则自动选择验证集上最好的模型
         """
+        set_seed()  # 确保可重复性
         print("\n" + "="*60)
         print("Feature Incremental Experiment")
         print("="*60)
@@ -717,7 +752,7 @@ class DiagnosticModelPipelineV4:
             
             # CV
             cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-            cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc')
+            cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc', n_jobs=1)
             
             # 训练
             model.fit(X_scaled, y)
@@ -760,19 +795,19 @@ class DiagnosticModelPipelineV4:
         
         self.incremental_results = results
         
-        # Save results to CSV (no plotting for v4_03)
-        results_df = pd.DataFrame([{
-            'n_features': r['n_features'],
-            'CV_AUC': r['cv_auc'],
-            'CV_std': r['cv_std'],
-            'Train_AUC': r['train_auc'],
-            'Val_AUC': r['val_auc'],
-            'Sensitivity': r['sensitivity'],
-            'Specificity': r['specificity'],
-            'Threshold': r['threshold'],
-            'Features': ', '.join(r['features'])
-        } for r in results])
-        results_df.to_csv('v4_feature_incremental_results.csv', index=False)
+        # Save results to CSV - 已注释，改用 v4_multi_model_best_configs.csv
+        # results_df = pd.DataFrame([{
+        #     'n_features': r['n_features'],
+        #     'CV_AUC': r['cv_auc'],
+        #     'CV_std': r['cv_std'],
+        #     'Train_AUC': r['train_auc'],
+        #     'Val_AUC': r['val_auc'],
+        #     'Sensitivity': r['sensitivity'],
+        #     'Specificity': r['specificity'],
+        #     'Threshold': r['threshold'],
+        #     'Features': ', '.join(r['features'])
+        # } for r in results])
+        # results_df.to_csv('v4_feature_incremental_results.csv', index=False)
         
         # Find best config
         best_val_idx = np.argmax([r['val_auc'] for r in results])
@@ -782,12 +817,12 @@ class DiagnosticModelPipelineV4:
         print(f"   Sensitivity: {best_result['sensitivity']:.4f}")
         print(f"   Specificity: {best_result['specificity']:.4f}")
         print(f"   Features: {', '.join(best_result['features'][:5])}...")
-        print("\nResults saved: v4_feature_incremental_results.csv")
         
         return results
     
     def run_multiple_models_incremental(self, feature_range=range(3, 13)):
         """Run feature incremental experiment for multiple models"""
+        set_seed()  # 确保可重复性
         print("\n" + "="*60)
         print("Multi-Model Feature Incremental Experiment")
         print("="*60)
@@ -827,16 +862,19 @@ class DiagnosticModelPipelineV4:
                 model = self._get_model_by_name(model_name)
                 
                 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-                cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc')
+                cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc', n_jobs=1)
                 
                 model.fit(X_scaled, y)
                 
                 # Get probabilities
                 if hasattr(model, 'predict_proba'):
+                    y_prob_train = model.predict_proba(X_scaled)[:, 1]
                     y_prob_val = model.predict_proba(X_val_scaled)[:, 1]
                 else:
+                    y_prob_train = model.decision_function(X_scaled)
                     y_prob_val = model.decision_function(X_val_scaled)
                 
+                train_auc = roc_auc_score(y, y_prob_train)
                 val_auc = roc_auc_score(y_val, y_prob_val)
                 
                 fpr, tpr, thresholds = roc_curve(y_val, y_prob_val)
@@ -849,6 +887,8 @@ class DiagnosticModelPipelineV4:
                 
                 results.append({
                     'n_features': n_feat,
+                    'features': selected,
+                    'train_auc': train_auc,
                     'cv_auc': cv_scores.mean(),
                     'val_auc': val_auc,
                     'sensitivity': sensitivity,
@@ -880,9 +920,12 @@ class DiagnosticModelPipelineV4:
             best_configs.append({
                 'model': model_name,
                 'n_features': best['n_features'],
+                'train_auc': best['train_auc'],
+                'cv_auc': best['cv_auc'],
                 'val_auc': best['val_auc'],
                 'sensitivity': best['sensitivity'],
-                'specificity': best['specificity']
+                'specificity': best['specificity'],
+                'features': ', '.join(best['features'])
             })
         
         # Sort by validation AUC
@@ -925,14 +968,18 @@ class DiagnosticModelPipelineV4:
                     color=METRIC_STYLES['SPE']['color'], fontweight='bold')
         
         plt.tight_layout()
-        plt.savefig('v4_04_multi_model_comparison.png', bbox_inches='tight', facecolor='white', dpi=150)
+        output_path = os.path.join(self.output_dir, 'v4_04_multi_model_comparison.png')
+        plt.savefig(output_path, bbox_inches='tight', facecolor='white', dpi=150)
         plt.show()
         
         # Save detailed results to CSV
         results_df = pd.DataFrame(best_configs)
-        results_df.to_csv('v4_multi_model_best_configs.csv', index=False)
+        output_path = os.path.join(self.output_dir, 'v4_multi_model_best_configs.csv')
+        results_df.to_csv(output_path, index=False)
         
-        print("\nResults saved: v4_04_multi_model_comparison.png, v4_multi_model_best_configs.csv")
+        print(f"\nResults saved to {self.output_dir}/:")
+        print("  - v4_04_multi_model_comparison.png")
+        print("  - v4_multi_model_best_configs.csv")
     
     # ==================== 主运行 ====================
     
@@ -971,12 +1018,29 @@ class DiagnosticModelPipelineV4:
 # ==================== 主程序 ====================
 
 if __name__ == '__main__':
-    pipeline = DiagnosticModelPipelineV4(
-        'data/LR_CD_P80_individual_input_table.csv',
-        'data/Validation_P80_sweetners_CD_individual_activity_Re.csv'
+    # ==================== 配置 1: 无甜味剂 ====================
+    pipeline1 = DiagnosticModelPipelineV4(
+        'data/Discovery_HK_no_sweeteners.csv',
+        'data/LR_AOCC_MiRES_combined_Validation_cohort_individual_input_table.csv',
+        output_dir='results_no_sweeteners'
     )
+    pipeline1.run(n_features=20, transform_method=None)
+    
+    # ==================== 配置 2: 有 sac_suc_asp ====================
+    pipeline2 = DiagnosticModelPipelineV4(
+        'data/Discovery_HK_sac_suc_asp.csv',
+        'data/Validation_AUS_KM_sac_suc_asp.csv',
+        output_dir='results_sac_suc_asp'
+    )
+    pipeline2.run(n_features=20, transform_method=None)
+    
+    # ==================== 配置 3: 有 sac_suc ====================
+    pipeline3 = DiagnosticModelPipelineV4(
+        'data/Discovery_HK_sac_suc.csv',
+        'data/Validation_AUS_KM_sac_suc.csv',
+        output_dir='results_sac_suc'
+    )
+    pipeline3.run(n_features=20, transform_method=None)
     
     # Run with specified transformation, or let the program auto-select
     # transform_method options: 'Raw', 'Log1p', 'Sqrt', 'Yeo-Johnson', 'Quantile-Normal'
-    pipeline.run(n_features=12, transform_method=None)  # None means auto-select best
-
